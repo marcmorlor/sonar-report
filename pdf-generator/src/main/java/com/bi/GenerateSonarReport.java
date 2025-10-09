@@ -636,7 +636,7 @@ public class GenerateSonarReport {
         }
         pdf.insertIndexAtBeginning();
         pdf.addCoverPage("SonarQube Report", "Generated for "+ project);
-        pdf.save("reportes.pdf");
+        pdf.save("sonarqube-report.pdf");
     }
 
     private static String minsToDaysHoursMins(int minutes) {
@@ -652,10 +652,11 @@ public class GenerateSonarReport {
         try {
             return String.valueOf(jsonArray.getJSONObject(index).getString("count"));
         } catch (JSONException e) {
-            System.err.println("Error al obtener 'count' en el índice " + index + ": " + e.getMessage());
+            System.err.println("Error at obtaning 'count' in the index " + index + ": " + e.getMessage());
             return ""; 
         }
     }
     return "";
 }
+
 }
