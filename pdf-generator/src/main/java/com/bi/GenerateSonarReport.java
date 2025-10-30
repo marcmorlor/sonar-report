@@ -600,24 +600,33 @@ public class GenerateSonarReport {
                 String currentLocations = existing.getString("location");
                 String file = originalObj.getString("component");
                 file = file.contains(":") ? file.split(":", 2)[1].trim() : file;
-                JSONObject textLines = originalObj.getJSONObject("textRange");
-                String textLine = Integer.toString(textLines.getInt("startLine"));
-                existing.put("location", currentLocations + " | " + file + ": " + textLine);
-
+                // Check if the issue is in a line of text or is the file itself
+                if (originalObj.has("textRange")) {
+                    JSONObject textLines = originalObj.getJSONObject("textRange");
+                    String textLine = Integer.toString(textLines.getInt("startLine"));
+                    existing.put("location", currentLocations + " | " + file + ": " + textLine);
+                }
+                else existing.put("location", currentLocations + " | " + file);
             } else {
                 // Is new
                 JSONObject newObj = new JSONObject();
-                JSONObject textLines = originalObj.getJSONObject("textRange");
+                
+                
                 String file = originalObj.getString("component");
                 file = file.contains(":") ? file.split(":", 2)[1].trim() : file;
-                String textLine = Integer.toString(textLines.getInt("startLine"));
+                
                 newObj.put("ruleKey", ruleKey);
                 newObj.put("count", 1);
                 newObj.put("severity", originalObj.getString("severity"));
                 newObj.put("message", originalObj.getString("message"));
                 newObj.put("type", originalObj.getString("type"));
-                newObj.put("location", file + ": " + textLine);
-
+                // Check if the issue is in a line of text or is the file itself
+                if (originalObj.has("textRange")) {
+                    JSONObject textLines = originalObj.getJSONObject("textRange");
+                    String textLine = Integer.toString(textLines.getInt("startLine"));
+                    newObj.put("location", file + ": " + textLine);
+                }
+                else newObj.put("location", file);
                 issuesMap.put(ruleKey, newObj);
             }
         }
