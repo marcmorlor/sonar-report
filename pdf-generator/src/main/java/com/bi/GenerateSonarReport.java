@@ -50,10 +50,11 @@ public class GenerateSonarReport {
         }
     }
     
-    public static JSONObject fetchDataFromURL(String url, String call, String token, String projectKey) throws IOException, InterruptedException {
+    public static JSONObject fetchDataFromURL(String url, String call, String token, String projectKey, String branch) throws IOException, InterruptedException {
         HttpClient client = createUnsafeHttpClient();
         String encodedProjectKey = URLEncoder.encode(projectKey, StandardCharsets.UTF_8);
-        String fullURL = String.format("%s%s%s", url, call, encodedProjectKey);
+        String encodedBranch = URLEncoder.encode(branch, StandardCharsets.UTF_8);
+        String fullURL = String.format("%s%s%s&branch=%s", url, call, encodedProjectKey, encodedBranch);
         
 
         HttpRequest request = HttpRequest.newBuilder()
@@ -75,20 +76,21 @@ public class GenerateSonarReport {
 
     @SuppressWarnings("empty-statement")
     public static void main(String[] args) throws IOException {
-        if (args.length < 3) {
-            System.err.println("Usage: java -jar target/pdf-generator-1.0-SNAPSHOT-jar-with-dependencies.jar <apiUrl> <authToken> <project>");
+        if (args.length < 4) {
+            System.err.println("Usage: java -jar target/pdf-generator-1.0-SNAPSHOT-jar-with-dependencies.jar <apiUrl> <authToken> <project> <branch>");
             System.exit(1);
         }
         String apiUrl = args[0]; 
         String authToken = args[1]; 
         String project = args[2]; 
+        String branch = args[3];
 
         // We create the initial pdf
         PDFReportWriter pdf = new PDFReportWriter();
         JSONObject data = null;
         JSONArray dataArray = null;
         try {
-            data = fetchDataFromURL(apiUrl, "/api/navigation/component?component=", authToken, project);
+            data = fetchDataFromURL(apiUrl, "/api/navigation/component?component=", authToken, project, branch);
         } catch (IOException | InterruptedException e) {
             System.err.println("Error at doing the HTTP petition: " + e.getMessage());
         }
@@ -102,8 +104,8 @@ public class GenerateSonarReport {
         pdf.addLine("• This document contains results of the code analysis of " + name + ".");
 
         String date = "• Date: " + data.getString("analysisDate");
-        String branch = "• Branch: " + data.getString("branch");
-        pdf.addLine(branch);
+        String outputBranch = "• Branch: " + data.getString("branch");
+        pdf.addLine(outputBranch);
         pdf.addLine(date.replace("T", " "));
 
         // Configuration
@@ -132,6 +134,20 @@ public class GenerateSonarReport {
         qualityGate += qualityGateList.getString("name") + ".";
         pdf.addLine(qualityGate);
 
+
+        String[] headers = { "Reliability", "Security", "Security Review", "Maintainability" };
+        List<String[]> rows = new ArrayList<>();
+
+        data = null;
+        try {
+            
+            data = fetchDataFromURL(apiUrl, "/api/measures/component?metricKeys=reliability_rating,software_quality_maintainability_rating,security_rating,security_review_rating&component=", authToken, project, branch);
+            data = data.getJSONObject("component");
+            
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Error at doing the HTTP petition: " + e.getMessage());
+        }
+        
         // SYNTHESYS
         pdf.tittle2Font();
         pdf.addLine("SYNTHESIS");
@@ -140,21 +156,9 @@ public class GenerateSonarReport {
         pdf.tittle3Font();
         pdf.addLine("ANALYSIS STATUS");
 
-
-        String[] headers = { "Reliability", "Security", "Security Review", "Maintainability" };
-        List<String[]> rows = new ArrayList<>();
-
-        data = null;
-        try {
-            
-            data = fetchDataFromURL(apiUrl, "/api/measures/component?metricKeys=reliability_rating,software_quality_maintainability_rating,security_rating,security_review_rating&component=", authToken, project);
-            data = data.getJSONObject("component");
-            
-        } catch (IOException | InterruptedException e) {
-            System.err.println("Error at doing the HTTP petition: " + e.getMessage());
-        }
-
         JSONArray measuresList = data.getJSONArray("measures");
+
+        
         String[] measures = new String[4];
         for (int i = 0; i < measuresList.length(); i++) {
             JSONObject measure = measuresList.getJSONObject(i);
@@ -181,7 +185,7 @@ public class GenerateSonarReport {
 
         try {
             
-            data = fetchDataFromURL(apiUrl, "/api/qualitygates/project_status?projectKey=", authToken, project);
+            data = fetchDataFromURL(apiUrl, "/api/qualitygates/project_status?projectKey=", authToken, project, branch);
             data = data.getJSONObject("projectStatus");
             
         } catch (IOException | InterruptedException e) {
@@ -198,7 +202,7 @@ public class GenerateSonarReport {
 
         try {
             
-            data = fetchDataFromURL(apiUrl, "/api/measures/component?metricKeys=duplicated_lines_density,comment_lines_density,ncloc,complexity,cognitive_complexity,coverage&component=", authToken, project);
+            data = fetchDataFromURL(apiUrl, "/api/measures/component?metricKeys=duplicated_lines_density,comment_lines_density,ncloc,complexity,cognitive_complexity,coverage&component=", authToken, project, branch);
             data = data.getJSONObject("component");
             
         } catch (IOException | InterruptedException e) {
@@ -244,7 +248,7 @@ public class GenerateSonarReport {
 
         try {
             
-            data = fetchDataFromURL(apiUrl, "/api/measures/component?metricKeys=duplicated_lines_density,comment_lines_density,ncloc,complexity,cognitive_complexity,coverage&component=", authToken, project);
+            data = fetchDataFromURL(apiUrl, "/api/measures/component?metricKeys=duplicated_lines_density,comment_lines_density,ncloc,complexity,cognitive_complexity,coverage&component=", authToken, project, branch);
             data = data.getJSONObject("component");
             
         } catch (IOException | InterruptedException e) {
@@ -289,7 +293,7 @@ public class GenerateSonarReport {
 
         try {
             
-            data = fetchDataFromURL(apiUrl, "/api/measures/component?metricKeys=reliability_remediation_effort,security_remediation_effort,sqale_index&component=", authToken, project);
+            data = fetchDataFromURL(apiUrl, "/api/measures/component?metricKeys=reliability_remediation_effort,security_remediation_effort,sqale_index&component=", authToken, project, branch);
             data = data.getJSONObject("component");
             
         } catch (IOException | InterruptedException e) {
@@ -324,14 +328,12 @@ public class GenerateSonarReport {
 
         rows.add(measures);
         pdf.drawTable(500, headers, rows);
+        
 
         // LINES PER LANGUAGE
-        pdf.tittle3Font();
-        pdf.addLine("LINES PER LANGUAGE");
-
         try {
             
-            data = fetchDataFromURL(apiUrl, "/api/measures/component?metricKeys=ncloc_language_distribution&component=", authToken, project);
+            data = fetchDataFromURL(apiUrl, "/api/measures/component?metricKeys=ncloc_language_distribution&component=", authToken, project, branch);
             data = data.getJSONObject("component");
             
         } catch (IOException | InterruptedException e) {
@@ -343,20 +345,25 @@ public class GenerateSonarReport {
 
         measuresList = data.getJSONArray("measures");
 
-        JSONObject measure = measuresList.getJSONObject(0);
+        if (!measuresList.isEmpty()) {
+            
+            pdf.tittle3Font();
+            pdf.addLine("LINES PER LANGUAGE");
 
-        String rawLanguages = measure.getString("value");
+            JSONObject measure = measuresList.getJSONObject(0);
 
-        for (String pair : rawLanguages.split(";")) {
-            String[] parts = pair.split("=");
-            if (parts.length == 2) {
-                int lines = Integer.parseInt(parts[1]);
-                String percent = String.format("%.2f%%", (lines * 100.0) / totalLinesOfCode);
-                rows.add(new String[] { parts[0], parts[1], percent});
+            String rawLanguages = measure.getString("value");
+
+            for (String pair : rawLanguages.split(";")) {
+                String[] parts = pair.split("=");
+                if (parts.length == 2) {
+                    int lines = Integer.parseInt(parts[1]);
+                    String percent = String.format("%.2f%%", (lines * 100.0) / totalLinesOfCode);
+                    rows.add(new String[] { parts[0], parts[1], percent});
+                }
             }
+            pdf.drawTable(500, headers, rows);
         }
-
-        pdf.drawTable(500, headers, rows);
 
         // SECURITY HOTSPOTS
 
@@ -367,7 +374,7 @@ public class GenerateSonarReport {
 
         try {
             
-            data = fetchDataFromURL(apiUrl, "/api/security_reports/show?standard=sonarsourceSecurity&project=", authToken, project);
+            data = fetchDataFromURL(apiUrl, "/api/security_reports/show?standard=sonarsourceSecurity&project=", authToken, project, branch);
             dataArray = data.getJSONArray("categories");
             
         } catch (IOException | InterruptedException e) {
@@ -425,11 +432,8 @@ public class GenerateSonarReport {
 
         pdf.drawTable(500, headers, rows);
 
+
         // SECURITY HOTSPOTS LIST
-
-        pdf.tittle3Font();
-        pdf.addLine("SECURITY HOTSPOT LIST");
-
 
         try {
             int pageIndex = 1;
@@ -440,7 +444,8 @@ public class GenerateSonarReport {
                     apiUrl,
                     String.format("/api/hotspots/search?status=TO_REVIEW&ps=500&pageIndex=%d&project=", pageIndex),
                     authToken,
-                    project
+                    project,
+                    branch
                 );
 
                 JSONArray currentPageHotspots = data.getJSONArray("hotspots");
@@ -496,13 +501,19 @@ public class GenerateSonarReport {
         }
         // Convert map to JSONArray
         JSONArray hotspotArray = new JSONArray(hotspotMap.values());
+
+        if (!hotspotArray.isEmpty()) {
+            pdf.tittle3Font();
+            pdf.addLine("SECURITY HOTSPOT LIST");
+        }
+
         for (int i = 0; i < hotspotArray.length(); i++) {
             JSONObject hotspotObject = hotspotArray.getJSONObject(i);
             pdf.startBulletEntry(hotspotObject.getString("message"));
             pdf.addIndentedLine("Vulnerability Probability", hotspotObject.getString("vulnerabilityProbability"));
             pdf.addIndentedLine("Count", Integer.toString(hotspotObject.getInt("count")));
             pdf.addIndentedLine("Locations", hotspotObject.getString("location"));
-            pdf.addIndentedHyperlink("Root Cause/How to fix", apiUrl+"coding_rules?q="+hotspotObject.getString("ruleKey")+"&open="+hotspotObject.getString("ruleKey"),hotspotObject.getString("ruleKey"));
+            pdf.addIndentedHyperlink("Root Cause/How to fix", apiUrl+"/coding_rules?q="+hotspotObject.getString("ruleKey")+"&open="+hotspotObject.getString("ruleKey"),hotspotObject.getString("ruleKey"));
         }
 
         // -----------------------------
@@ -518,7 +529,7 @@ public class GenerateSonarReport {
 
         try {
             
-            data = fetchDataFromURL(apiUrl, "/api/issues/search?types=BUG&facets=severities&componentKeys=", authToken, project);
+            data = fetchDataFromURL(apiUrl, "/api/issues/search?types=BUG&facets=severities&componentKeys=", authToken, project, branch);
             
         } catch (IOException | InterruptedException e) {
             System.err.println("Error at doing the HTTP petition: " + e.getMessage());
@@ -530,7 +541,7 @@ public class GenerateSonarReport {
 
         try {
             
-            data = fetchDataFromURL(apiUrl, "/api/issues/search?types=VULNERABILITY&facets=severities&componentKeys=", authToken, project);
+            data = fetchDataFromURL(apiUrl, "/api/issues/search?types=VULNERABILITY&facets=severities&componentKeys=", authToken, project, branch);
             
         } catch (IOException | InterruptedException e) {
             System.err.println("Error at doing the HTTP petition: " + e.getMessage());
@@ -542,7 +553,7 @@ public class GenerateSonarReport {
 
         try {
             
-            data = fetchDataFromURL(apiUrl, "/api/issues/search?types=CODE_SMELL&facets=severities&componentKeys=", authToken, project);
+            data = fetchDataFromURL(apiUrl, "/api/issues/search?types=CODE_SMELL&facets=severities&componentKeys=", authToken, project, branch);
             
         } catch (IOException | InterruptedException e) {
             System.err.println("Error at doing the HTTP petition: " + e.getMessage());
@@ -555,8 +566,6 @@ public class GenerateSonarReport {
         pdf.drawTable(500, headers, rows);
 
         // ISSUES LIST
-        pdf.tittle3Font();
-        pdf.addLine("ISSUES LIST");
 
         try {
             int pageIndex = 1;
@@ -567,7 +576,8 @@ public class GenerateSonarReport {
                     apiUrl,
                     String.format("/api/issues/search?issueStatuses=OPEN&ps=500&pageIndex=%d&componentKeys=", pageIndex),
                     authToken,
-                    project
+                    project,
+                    branch
                 );
 
                 JSONArray currentPageHotspots = data.getJSONArray("issues");
@@ -633,6 +643,11 @@ public class GenerateSonarReport {
 
         // Map to JsonArray
         JSONArray issuesArray = new JSONArray(issuesMap.values());
+
+        if (!issuesArray.isEmpty()) {
+            pdf.tittle3Font();
+            pdf.addLine("ISSUES LIST");
+        }
 
         for (int i = 0; i < issuesArray.length(); i++) {
             JSONObject issuesObject = issuesArray.getJSONObject(i);
