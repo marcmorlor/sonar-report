@@ -18,7 +18,6 @@ jobs:
 
     permissions:
       contents: write
-      pull-requests: write
       
     steps:
       - name: Checkout
@@ -83,64 +82,6 @@ jobs:
           path: ${{ env.OUT }}
           if-no-files-found: error
           retention-days: 14
-
-      - name: Comment on PR with artifact link
-        if: ${{ github.event_name == 'pull_request' }}
-        continue-on-error: true
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const artifactName = '${{ env.OUT }}';
-            const runId = context.runId;
-            const repoUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}`;
-            const artifactUrl = `${repoUrl}/actions/runs/${runId}`;
-            
-            const comment = `## 🎯 JAR Artifact Ready
-            
-The executable JAR has been built and is available for download:
-
-**Artifact Name:** \`${artifactName}\`
-
-📥 [**Download from workflow run**](${artifactUrl})
-
-_The artifact will be available for 14 days._`;
-            
-            try {
-              // Check if we already commented
-              const comments = await github.rest.issues.listComments({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-              });
-              
-              const botComment = comments.data.find(comment => 
-                comment.user.type === 'Bot' && 
-                comment.body.includes('🎯 JAR Artifact Ready')
-              );
-              
-              if (botComment) {
-                // Update existing comment
-                await github.rest.issues.updateComment({
-                  comment_id: botComment.id,
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  body: comment
-                });
-                console.log('✓ Comment updated');
-              } else {
-                // Create new comment
-                await github.rest.issues.createComment({
-                  issue_number: context.issue.number,
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  body: comment
-                });
-                console.log('✓ Comment created');
-              }
-            } catch (error) {
-              console.error('Failed to post comment:', error.message);
-              throw error;
-            }
 
       - name: Attach JAR to GitHub Release
         if: ${{ github.event_name == 'release' }}
