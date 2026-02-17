@@ -90,3 +90,28 @@ jobs:
           files: ${{ env.OUT }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete existing 'latest' release and tag
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        continue-on-error: true
+        run: |
+          gh release delete latest --yes || true
+          git push origin :refs/tags/latest || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create 'latest' pre-release for main branch
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Development Build
+          prerelease: true
+          body: |
+            Automated pre-release from the latest commit on main branch.
+            
+            **Commit:** ${{ github.sha }}
+            **Build:** ${{ github.run_number }}
+          files: ${{ env.OUT }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
