@@ -645,7 +645,7 @@ public class GenerateSonarReport {
                 String currentLocations = existing.getString("location");
                 String file = originalObj.getString("component");
                 file = file.contains(":") ? file.split(":", 2)[1].trim() : file;
-                // Adds either file-and-line information or just the file path.
+                // Check if the issue is in a line of text or is the file itself
                 if (originalObj.has("textRange")) {
                     JSONObject textLines = originalObj.getJSONObject("textRange");
                     String textLine = Integer.toString(textLines.getInt("startLine"));
@@ -665,7 +665,7 @@ public class GenerateSonarReport {
                 newObj.put("severity", originalObj.getString("severity"));
                 newObj.put("message", originalObj.getString("message"));
                 newObj.put("type", originalObj.getString("type"));
-                // Stores the first location of the issue.
+                // Check if the issue is in a line of text or is the file itself
                 if (originalObj.has("textRange")) {
                     JSONObject textLines = originalObj.getJSONObject("textRange");
                     String textLine = Integer.toString(textLines.getInt("startLine"));
